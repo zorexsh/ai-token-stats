@@ -15,10 +15,14 @@ type Record struct {
 func (r Record) Total() int64 { return r.Input + r.Output + r.Cache }
 
 type Totals struct {
-	Input  int64 `json:"input"`
-	Output int64 `json:"output"`
-	Cache  int64 `json:"cache"`
-	Tokens int64 `json:"tokens"`
+	Input  int64   `json:"input"`
+	Output int64   `json:"output"`
+	Cache  int64   `json:"cache"`
+	Tokens int64   `json:"tokens"`
+	USD    float64 `json:"usd"`
+	// Priced is false when a model in the bucket has no published rate. The
+	// usd field is then a lower bound, not a total.
+	Priced bool `json:"priced"`
 }
 
 func (t *Totals) add(r Record) {
@@ -26,6 +30,11 @@ func (t *Totals) add(r Record) {
 	t.Output += r.Output
 	t.Cache += r.Cache
 	t.Tokens += r.Total()
+	if cost, ok := estimate(r.Model, r.Input, r.Output, r.Cache); ok {
+		t.USD += cost
+		return
+	}
+	t.Priced = false
 }
 
 type ToolTotal struct {
@@ -65,7 +74,7 @@ func Summarize(records []Record, from, to time.Time) Summary {
 		add := func(m map[string]*Totals, key string) {
 			t := m[key]
 			if t == nil {
-				t = &Totals{}
+				t = &Totals{Priced: true}
 				m[key] = t
 			}
 			t.add(r)
@@ -75,13 +84,17 @@ func Summarize(records []Record, from, to time.Time) Summary {
 		add(byDay, r.Hour.Format("2006-01-02"))
 	}
 
-	out := Summary{From: from.Format(time.RFC3339), To: to.Format(time.RFC3339)}
+	out := Summary{From: from.Format(time.RFC3339), To: to.Format(time.RFC3339), Totals: Totals{Priced: true}}
 	for tool, t := range byTool {
 		out.Tools = append(out.Tools, ToolTotal{Tool: tool, Totals: *t})
 		out.Totals.Input += t.Input
 		out.Totals.Output += t.Output
 		out.Totals.Cache += t.Cache
 		out.Totals.Tokens += t.Tokens
+		out.Totals.USD += t.USD
+		if !t.Priced {
+			out.Totals.Priced = false
+		}
 	}
 	for model, t := range byModel {
 		out.Models = append(out.Models, ModelTotal{Model: model, Totals: *t})

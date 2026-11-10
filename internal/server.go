@@ -6,25 +6,22 @@ import (
 	"time"
 )
 
-type Server struct {
-	home string
-}
+type Server struct{}
 
-func NewServer(home string) *Server { return &Server{home: home} }
+func NewServer() *Server { return &Server{} }
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /usage", s.usage)
+	mux.HandleFunc("GET /stats", s.stats)
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]string{"status": "ok"})
 	})
 	return mux
 }
 
-func (s *Server) usage(w http.ResponseWriter, r *http.Request) {
+func (s *Server) stats(w http.ResponseWriter, r *http.Request) {
 	from, to := window(r.URL.Query().Get("range"))
-	records := Scan(s.home)
-	writeJSON(w, Summarize(records, from, to))
+	writeJSON(w, Summarize(Scan(), from, to))
 }
 
 func window(name string) (time.Time, time.Time) {

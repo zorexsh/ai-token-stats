@@ -1,0 +1,11 @@
+[Unit]
+Description=AI coding tool token stats
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/stats -port 7679
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

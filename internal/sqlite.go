@@ -3,6 +3,8 @@ package internal
 import (
 	"database/sql"
 	"encoding/json"
+	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -12,10 +14,10 @@ import (
 // readSQLiteMessages reads OpenCode's message table. Tokens live in the JSON
 // blob, not in columns, so each row is decoded on its own.
 func readSQLiteMessages(path, tool string, out *[]Record) {
-	if !strings.HasSuffix(path, ".db") {
+	if !isSQLiteFile(path) {
 		return
 	}
-	db, err := sql.Open("sqlite", path+"?mode=ro")
+	db, err := sql.Open("sqlite", sqliteDSN(path))
 	if err != nil {
 		return
 	}
@@ -50,6 +52,21 @@ type opencodeMessage struct {
 			Read int64 `json:"read"`
 		} `json:"cache"`
 	} `json:"tokens"`
+}
+
+func isSQLiteFile(path string) bool {
+	name := strings.ToLower(path)
+	return strings.HasSuffix(name, ".db") || strings.HasSuffix(name, ".sqlite") || strings.HasSuffix(name, ".sqlite3")
+}
+
+// sqliteDSN builds a read-only URI. A raw path breaks on Windows because the
+// drive colon is read as a URI separator.
+func sqliteDSN(path string) string {
+	return "file:" + url.PathEscape(filepathToSlash(path)) + "?mode=ro"
+}
+
+func filepathToSlash(path string) string {
+	return filepath.ToSlash(path)
 }
 
 func opencodeRecord(data string, created int64, tool string) (Record, bool) {

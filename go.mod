@@ -1,4 +1,4 @@
-module github.com/notzorexlol/usage
+module github.com/notzorexlol/stats
 
 go 1.27.3
 

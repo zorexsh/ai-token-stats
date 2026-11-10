@@ -9,48 +9,63 @@ import (
 	"time"
 )
 
-// A source is one tool's log folder and the function that reads a file from it.
+// A source is one tool and the function that reads a file from its logs.
 type source struct {
 	tool string
-	dir  string
 	read func(path, tool string, out *[]Record)
 }
 
-func sources(home string) []source {
+func sources() []source {
 	return []source{
-		{"claude", filepath.Join(home, ".claude", "projects"), readJSONL(claudeRecord)},
-		{"codex", filepath.Join(home, ".codex", "sessions"), readJSONL(codexRecord)},
-		{"gemini", filepath.Join(home, ".gemini"), readJSONL(geminiRecord)},
-		{"opencode", filepath.Join(home, ".local", "share", "opencode"), readSQLiteMessages},
-		{"cursor", filepath.Join(home, ".cursor", "projects"), readJSONL(cursorRecord)},
-		{"grok", filepath.Join(home, ".grok"), readJSONL(genericRecord)},
-		{"openclaw", filepath.Join(home, ".openclaw"), readJSONL(genericRecord)},
-		{"cline", filepath.Join(home, ".cline", "data", "sessions"), readJSONL(genericRecord)},
-		{"codebuddy", filepath.Join(home, ".codebuddy"), readJSONL(genericRecord)},
-		{"kimi", filepath.Join(home, ".kimi"), readJSONL(genericRecord)},
-		{"pi", filepath.Join(home, ".pi"), readJSONL(genericRecord)},
+		{"claude", readJSONL(claudeRecord)},
+		{"codex", readJSONL(codexRecord)},
+		{"gemini", readJSONL(geminiRecord)},
+		{"opencode", readSQLiteMessages},
+		{"cursor", readJSONL(cursorRecord)},
+		{"grok", readJSONL(genericRecord)},
+		{"openclaw", readJSONL(genericRecord)},
+		{"cline", readJSONL(genericRecord)},
+		{"codebuddy", readJSONL(genericRecord)},
+		{"kimi", readJSONL(genericRecord)},
+		{"pi", readJSONL(genericRecord)},
 	}
 }
 
-// Scan reads every supported tool's logs under home.
-func Scan(home string) []Record {
+// Scan reads every supported tool's logs for the current machine.
+func Scan() []Record {
+	return scanLayout(hostLayout())
+}
+
+func scanLayout(l layout) []Record {
 	var records []Record
-	for _, s := range sources(home) {
-		if _, err := os.Stat(s.dir); err != nil {
-			continue
+	for _, s := range sources() {
+		for _, dir := range l.dirs(s.tool) {
+			filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+				if err != nil || d.IsDir() || !logFile(path) {
+					return nil
+				}
+				s.read(path, s.tool, &records)
+				return nil
+			})
 		}
-		filepath.WalkDir(s.dir, func(path string, d os.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
-				return nil
-			}
-			if !strings.HasSuffix(path, ".jsonl") && !strings.HasSuffix(path, ".db") {
-				return nil
-			}
-			s.read(path, s.tool, &records)
-			return nil
-		})
 	}
 	return records
+}
+
+func logFile(path string) bool {
+	name := strings.ToLower(filepath.Base(path))
+	switch {
+	case strings.HasSuffix(name, ".jsonl"):
+		return true
+	case strings.HasSuffix(name, ".db"):
+		return true
+	case strings.HasSuffix(name, ".sqlite"), strings.HasSuffix(name, ".sqlite3"):
+		return true
+	case strings.HasSuffix(name, ".vscdb"):
+		return true
+	default:
+		return false
+	}
 }
 
 func readJSONL(parse func(map[string]any, string) (Record, bool)) func(string, string, *[]Record) {

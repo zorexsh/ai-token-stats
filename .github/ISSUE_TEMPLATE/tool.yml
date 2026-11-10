@@ -1,0 +1,15 @@
+name: New tool
+description: A coding tool writes usage logs that stats does not read yet.
+labels: [tool]
+body:
+  - type: input
+    attributes:
+      label: Tool
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Where the logs live
+      description: The path on each operating system, and one redacted line that shows the token fields. Do not paste prompts.
+    validations:
+      required: true
