@@ -1,0 +1,11 @@
+[Unit]
+Description=Local AI token stats for a portfolio page
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/ai-token-stats -port 7679
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
