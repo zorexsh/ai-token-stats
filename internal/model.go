@@ -52,14 +52,17 @@ type DayTotal struct {
 	Totals Totals `json:"totals"`
 }
 
-// A Summary is the shape the page asks for.
+// A Summary is the shape a page asks for.
 type Summary struct {
-	From   string       `json:"from"`
-	To     string       `json:"to"`
-	Totals Totals       `json:"totals"`
-	Tools  []ToolTotal  `json:"tools"`
-	Models []ModelTotal `json:"models"`
-	Days   []DayTotal   `json:"days"`
+	SyncedAt        string       `json:"synced_at,omitempty"`
+	NextSyncAt      string       `json:"next_sync_at,omitempty"`
+	IntervalSeconds int          `json:"interval_seconds,omitempty"`
+	From            string       `json:"from"`
+	To              string       `json:"to"`
+	Totals          Totals       `json:"totals"`
+	Tools           []ToolTotal  `json:"tools"`
+	Models          []ModelTotal `json:"models"`
+	Days            []DayTotal   `json:"days"`
 }
 
 func Summarize(records []Record, from, to time.Time) Summary {

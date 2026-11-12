@@ -1,5 +1,5 @@
 class AiTokenStats < Formula
-  desc "Local AI token stats for a portfolio page"
+  desc "Local AI token stats for a portfolio or any other page"
   homepage "https://github.com/zorexsh/ai-token-stats"
   url "https://github.com/zorexsh/ai-token-stats/archive/refs/tags/v0.1.0.tar.gz"
   license "MIT"

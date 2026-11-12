@@ -1,5 +1,5 @@
 [Unit]
-Description=Local AI token stats for a portfolio page
+Description=Local AI token stats for a portfolio or any other page
 After=network.target
 
 [Service]

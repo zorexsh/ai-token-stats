@@ -64,6 +64,37 @@ func TestScanLayoutReadsEveryOS(t *testing.T) {
 	}
 }
 
+func TestCacheSkipsUnchangedFiles(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	l := layout{
+		home:    home,
+		appData: filepath.Join(home, "AppData", "Roaming"),
+		config:  filepath.Join(home, ".config"),
+		data:    filepath.Join(home, ".local", "share"),
+		goos:    "linux",
+	}
+	path := filepath.Join(home, ".claude", "projects", "sess", "a.jsonl")
+	writeJSONL(t, path, `{"timestamp":"2026-11-10T03:12:00Z","message":{"model":"opus","usage":{"input_tokens":10,"output_tokens":4}}}`)
+
+	cache := &Cache{}
+	first := cache.collect(l)
+	second := cache.collect(l)
+	if len(first) != 1 || len(second) != 1 || second[0].Input != 10 {
+		t.Fatalf("cached reads = %+v then %+v", first, second)
+	}
+
+	body := "{\"timestamp\":\"2026-11-10T03:12:00Z\",\"message\":{\"model\":\"opus\",\"usage\":{\"input_tokens\":10,\"output_tokens\":4}}}\n" +
+		"{\"timestamp\":\"2026-11-10T05:00:00Z\",\"message\":{\"model\":\"opus\",\"usage\":{\"input_tokens\":3,\"output_tokens\":1}}}\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	third := cache.collect(l)
+	if len(third) != 2 {
+		t.Fatalf("reread after append = %+v", third)
+	}
+}
+
 func TestSQLiteDSNEscapesWindowsPaths(t *testing.T) {
 	got := sqliteDSN(filepath.Join("C:", "Users", "ada", "opencode.db"))
 	if strings.Contains(got, " ") || !strings.Contains(got, "mode=ro") || !strings.HasPrefix(got, "file:") {

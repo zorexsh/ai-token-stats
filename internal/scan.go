@@ -36,7 +36,32 @@ func Scan() []Record {
 	return scanLayout(hostLayout())
 }
 
+type fileSnap struct {
+	mod  time.Time
+	size int64
+	recs []Record
+}
+
+// A Cache reuses a file's records until its size or modification time changes.
+// The server keeps one for the life of the process so a 30s sync does not
+// reread logs that have not grown.
+type Cache struct {
+	files map[string]fileSnap
+}
+
+func (c *Cache) Scan() []Record {
+	return c.collect(hostLayout())
+}
+
 func scanLayout(l layout) []Record {
+	return (&Cache{}).collect(l)
+}
+
+func (c *Cache) collect(l layout) []Record {
+	if c.files == nil {
+		c.files = map[string]fileSnap{}
+	}
+	seen := map[string]struct{}{}
 	var records []Record
 	for _, s := range sources() {
 		for _, dir := range l.dirs(s.tool) {
@@ -44,9 +69,27 @@ func scanLayout(l layout) []Record {
 				if err != nil || d.IsDir() || !logFile(path) {
 					return nil
 				}
-				s.read(path, s.tool, &records)
+				info, infoErr := d.Info()
+				if infoErr != nil {
+					return nil
+				}
+				seen[path] = struct{}{}
+				prev, ok := c.files[path]
+				if ok && prev.size == info.Size() && prev.mod.Equal(info.ModTime()) {
+					records = append(records, prev.recs...)
+					return nil
+				}
+				var got []Record
+				s.read(path, s.tool, &got)
+				c.files[path] = fileSnap{mod: info.ModTime(), size: info.Size(), recs: got}
+				records = append(records, got...)
 				return nil
 			})
+		}
+	}
+	for path := range c.files {
+		if _, ok := seen[path]; !ok {
+			delete(c.files, path)
 		}
 	}
 	return records
